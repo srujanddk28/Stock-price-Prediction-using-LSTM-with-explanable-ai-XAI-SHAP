@@ -30,19 +30,45 @@ SEED = 42
 
 
 def download_close(ticker: str, period: str) -> pd.Series:
-    """Download adjusted daily closing prices from Yahoo Finance."""
-    data = yf.download(ticker, period=period, auto_adjust=True, progress=False)
-    if data.empty:
+    """Download daily prices, falling back to Stooq if Yahoo Finance is unavailable."""
+    try:
+        data = yf.download(ticker, period=period, auto_adjust=True, progress=False)
+        if not data.empty:
+            close = data["Close"]
+            if isinstance(close, pd.DataFrame):
+                close = close.iloc[:, 0]
+            close = close.dropna().astype("float32")
+            if len(close) > WINDOW + 30:
+                print("Data source: Yahoo Finance")
+                return close
+    except Exception as exc:
+        print(f"Yahoo Finance download failed: {exc}")
+
+    # Stooq is a free fallback and avoids Yahoo's browser-impersonation dependency.
+    stooq_symbol = f"{ticker.lower()}.us"
+    url = f"https://stooq.com/q/d/l/?s={stooq_symbol}&i=d"
+    try:
+        data = pd.read_csv(url)
+        if data.empty or "Close" not in data.columns:
+            raise ValueError("Stooq returned no usable price data.")
+        data["Date"] = pd.to_datetime(data["Date"])
+        data = data.sort_values("Date").set_index("Date")
+        close = data["Close"].dropna().astype("float32")
+        if period.endswith("y"):
+            years = int(period[:-1])
+            close = close.loc[close.index >= (pd.Timestamp.today() - pd.DateOffset(years=years))]
+        elif period.endswith("mo"):
+            months = int(period[:-2])
+            close = close.loc[close.index >= (pd.Timestamp.today() - pd.DateOffset(months=months))]
+        if len(close) <= WINDOW + 30:
+            raise ValueError("Stooq did not return enough history for this period.")
+        print(f"Data source: Stooq ({stooq_symbol})")
+        return close
+    except Exception as exc:
         raise ValueError(
-            f"No market data returned for {ticker}. Check the ticker and internet connection."
-        )
-    close = data["Close"]
-    if isinstance(close, pd.DataFrame):
-        close = close.iloc[:, 0]
-    close = close.dropna().astype("float32")
-    if len(close) <= WINDOW + 30:
-        raise ValueError("Not enough price history. Choose a longer period.")
-    return close
+            f"Could not download {ticker} prices from Yahoo Finance or Stooq. "
+            f"Check the ticker and network. Stooq error: {exc}"
+        ) from exc
 
 
 def make_sequences(values: np.ndarray, window: int = WINDOW):
