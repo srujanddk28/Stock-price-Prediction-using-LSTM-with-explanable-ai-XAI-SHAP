@@ -3,6 +3,5 @@ pandas
 matplotlib
 scikit-learn
 tensorflow
-yfinance
 joblib
 shap
