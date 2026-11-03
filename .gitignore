@@ -1,0 +1,17 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.env
+
+# Generated models and local experiment outputs
+artifacts/*
+!artifacts/.gitkeep
+results/*
+!results/README.md
+
+# Notebook and editor files
+.ipynb_checkpoints/
+.vscode/
+.DS_Store
