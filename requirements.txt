@@ -5,3 +5,4 @@ scikit-learn
 tensorflow
 yfinance
 joblib
+shap
