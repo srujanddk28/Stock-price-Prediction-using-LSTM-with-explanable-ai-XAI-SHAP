@@ -1,154 +1,153 @@
 # Stock Price Prediction using LSTM and Explainable AI (SHAP)
 
-**A student learning project | Python, TensorFlow/Keras, LSTM, SHAP, Pandas**
+**A hands-on machine-learning project by Srujan S**  
+Python · TensorFlow/Keras · LSTM · SHAP · Pandas · scikit-learn · GitHub Actions
 
-This project explores whether an LSTM neural network can learn patterns from historical daily closing prices. It downloads market data, trains a model, compares it with a simple previous-day baseline, saves evaluation results, and uses SHAP to inspect which input days influenced selected model predictions.
+This project trains an LSTM neural network to forecast the next daily closing price from the previous 30 trading days. It evaluates predictions on a chronological holdout set, compares the model with a simple previous-day baseline, and uses SHAP to inspect which input lags influence selected model outputs.
 
-> **Disclaimer:** This is an educational machine-learning project, not financial advice. Historical patterns do not guarantee future returns. Model outputs should not be used as the only basis for investment decisions.
+> **Important evaluation finding:** In the currently published AAPL run, the LSTM performs worse than the previous-day baseline. This is reported transparently rather than presenting the neural network as a successful trading predictor. Improving this result is part of the ongoing project.
 
-## Project objectives
+> **Disclaimer:** This is an educational project, not financial advice. Historical test performance does not guarantee future results.
 
-- Understand how time-series data can be prepared for an LSTM.
-- Train and evaluate a small recurrent neural network.
-- Compare the model against a simple persistence baseline.
-- Visualise predictions and training loss.
-- Explore model explanations using SHAP.
+## Project highlights
 
-## Tools and libraries
+- Downloads historical adjusted closing prices from the Yahoo Finance chart endpoint.
+- Uses chronological 80/20 train/test separation and fits preprocessing on training data only.
+- Creates rolling sequences from the previous 30 trading days.
+- Trains a stacked LSTM with early stopping.
+- Reports MAE and RMSE for both the LSTM and a previous-day persistence baseline.
+- Generates actual-vs-predicted and training-loss charts.
+- Uses SHAP KernelExplainer to estimate the influence of each input lag.
+- Runs automatically through GitHub Actions and publishes result files to this repository.
 
-- Python 3.10+
-- TensorFlow / Keras
-- yfinance and Pandas
-- NumPy, Matplotlib and scikit-learn
-- SHAP
+## Latest published AAPL evaluation
+
+<text>**Data snapshot:** 1,254 daily observations requested over 5 years; 1,003 training observations and 251 test observations. Generated on 3 November 2026.</text>
+
+| Metric | LSTM | Previous-day baseline |
+|---|---:|---:|
+| MAE | 14.61 | **3.20** |
+| RMSE | 18.47 | **4.47** |
+
+Lower MAE and RMSE are better. In this run, the baseline is substantially better than the LSTM. The model should not be described as outperforming the baseline.
+
+See the full [metrics JSON](results/aapl_metrics.json) and [date-wise predictions CSV](results/aapl_predictions.csv).
+
+## Visual results
+
+### Actual vs. predicted closing prices
+
+![AAPL actual vs predicted](results/aapl_actual_vs_predicted.png)
+
+### Training and validation loss
+
+![AAPL training loss](results/aapl_training_loss.png)
+
+### SHAP input-lag importance
+
+![AAPL SHAP feature importance](results/aapl_shap_importance.png)
+
+The SHAP chart summarizes mean absolute SHAP values across selected recent windows. A larger value indicates greater influence on the model output for those selected examples and background data; it does not identify real-world causes of stock-price movements.
 
 ## Repository structure
 
 ```text
 .
+├── .github/workflows/
+│   └── train-and-publish.yml   # Automated training and result publishing
 ├── src/
-│   ├── train.py          # Download data, train LSTM, evaluate and plot
-│   └── explain.py        # Explain recent model predictions with SHAP
+│   ├── train.py               # Download, train, evaluate and plot
+│   └── explain.py             # SHAP explanation generation
 ├── results/
-│   └── README.md         # Description of generated result files
-├── artifacts/
-│   └── .gitkeep          # Trained model files are generated locally
+│   ├── aapl_actual_vs_predicted.png
+│   ├── aapl_training_loss.png
+│   ├── aapl_predictions.csv
+│   ├── aapl_metrics.json
+│   ├── aapl_shap_importance.png
+│   └── aapl_shap_importance.csv
+├── artifacts/                 # Generated model and scaler (not committed)
 ├── requirements.txt
-└── .gitignore
+└── README.md
 ```
 
-## Setup on Windows
+## Run locally on Windows
 
 Open Command Prompt or the VS Code terminal in the project folder.
 
 ```bash
 py -m venv .venv
-.venv\Scripts\activate
+.venv\\Scripts\\activate
 python -m pip install --upgrade pip
 pip install -r requirements.txt
 ```
 
-If the `py` command is not available, try `python` instead.
+If `py` is unavailable, use `python` instead.
 
-## Step 1: Train and evaluate the model
-
-Example using Apple historical prices:
+### 1. Train and evaluate
 
 ```bash
 python src/train.py --ticker AAPL --period 5y
 ```
 
-You can try another Yahoo Finance ticker:
+Try another ticker:
 
 ```bash
 python src/train.py --ticker MSFT --period 5y
 ```
 
-The training script:
-1. Downloads adjusted daily closing prices.
-2. Uses the first 80% of observations for training and the later 20% for testing.
-3. Fits the scaler using training data only.
-4. Creates input sequences from the previous 30 trading days.
-5. Trains an LSTM with early stopping.
-6. Evaluates the test set using MAE and RMSE.
-7. Compares the LSTM with a previous-day closing-price baseline.
-
-## Step 2: Generate SHAP explanations
+### 2. Generate SHAP explanations
 
 Run this after training the same ticker:
 
 ```bash
-python src/explain.py --ticker AAPL
+python src/explain.py --ticker AAPL --period 6mo --background 10 --samples 5
 ```
 
-The SHAP script uses KernelExplainer on flattened 30-day input windows. It saves a CSV and a horizontal bar chart showing mean absolute SHAP values for each lag day. The calculation may take a few minutes.
+SHAP KernelExplainer may take several minutes. The explanation script expects the trained model and scaler in the `artifacts/` directory.
 
-**How to read the chart:** A larger mean absolute SHAP value means that input lag had a larger influence on the model output for the selected examples and background data. It does not show a real-world cause of a stock movement.
+## Evaluation methodology
 
-## Generated results
+1. Download adjusted daily closing prices.
+2. Keep the observations in chronological order.
+3. Use the first 80% for training and the remaining 20% for testing.
+4. Fit MinMaxScaler only on the training portion.
+5. Use a 30-trading-day lookback to predict the next observation.
+6. Compare the LSTM with a persistence baseline that predicts the next close using the latest observed close.
 
-After running the scripts, check the `results/` folder:
+- **MAE (Mean Absolute Error):** average absolute prediction error; lower is better.
+- **RMSE (Root Mean Squared Error):** gives larger errors more weight; lower is better.
 
-| File | Description |
-|---|---|
-| `<ticker>_actual_vs_predicted.png` | Actual test prices compared with LSTM predictions |
-| `<ticker>_training_loss.png` | Training and validation loss |
-| `<ticker>_predictions.csv` | Date-wise actual, LSTM and baseline values |
-| `<ticker>_metrics.json` | Test MAE and RMSE for model and baseline |
-| `<ticker>_shap_importance.png` | SHAP importance by input lag |
-| `<ticker>_shap_importance.csv` | SHAP importance values |
+## Automated workflow
 
-The result files are generated when the project is run. **No sample accuracy or metric values are claimed here** because results depend on the ticker, downloaded date range, software versions and training run. Commit your own generated charts and metrics after checking them.
+The GitHub Actions workflow runs the AAPL training and SHAP scripts and publishes generated charts, CSV files and metrics to `results/`.
 
-## Evaluation metrics
+To run it manually:
+1. Open the repository's **Actions** tab.
+2. Select **Train model and publish graphs**.
+3. Select **Run workflow**.
 
-- **MAE (Mean Absolute Error):** average absolute difference between actual and predicted prices. Lower is better.
-- **RMSE (Root Mean Squared Error):** gives larger errors more weight. Lower is better.
+[View workflow runs](../../actions).
 
-The previous-day baseline is included because a neural network should be compared with a simple reference method, not judged by its graph alone.
+## Current limitations and next improvements
 
-## Current limitations
+- The current model uses only one input feature: historical adjusted closing price.
+- The current holdout evaluation is not a full walk-forward backtest.
+- The published LSTM result is worse than the persistence baseline; this needs investigation before claiming predictive value.
+- SHAP explains model behaviour for selected inputs, not causal market factors.
+- Market-data endpoint availability and compatibility can change.
 
-- Uses only historical closing prices; it does not include company news, financial statements or macroeconomic information.
-- A random-free chronological holdout is used, but this is not a full walk-forward backtest.
-- The model is a learning experiment and may not outperform the baseline.
-- SHAP explanations describe the model's behaviour, not causal market factors.
-- Yahoo Finance data availability and package compatibility may change.
+Planned improvements:
+- Investigate scaling, target alignment and model under/overfitting.
+- Add volume and carefully selected technical indicators.
+- Tune lookback length, model size and training parameters using validation data only.
+- Add walk-forward evaluation and compare with ARIMA and other simple baselines.
+- Build a Streamlit dashboard only after the evaluation pipeline is reliable.
 
-## Ideas for future improvements
+## Skills demonstrated
 
-- Add volume and technical indicators as extra features.
-- Compare LSTM with ARIMA and other baseline models.
-- Add walk-forward validation.
-- Build a small Streamlit dashboard.
-- Test additional tickers and record results in a comparison table.
-
-## What I learned
-
-This project is intended to practise Python, data preprocessing, sequence modelling, model evaluation, plotting and basic explainable AI. I am continuing to improve the code and understand each step.
+Python programming · Data cleaning · Time-series preprocessing · LSTM neural networks · Model evaluation · Baseline comparison · Data visualization · Explainable AI (SHAP) · Git/GitHub · GitHub Actions
 
 ## Author
 
 **Srujan S**  
-GitHub: [@srujanddk28](https://github.com/srujanddk28)
-
-
-## Live graphs and model results on GitHub
-
-The repository includes an automated GitHub Actions workflow that trains the AAPL model, evaluates it against the previous-day baseline, creates prediction and training-loss charts, and generates a SHAP feature-importance chart. When the workflow completes successfully, it publishes the generated charts, prediction CSV and evaluation metrics into `results/`.
-
-### Latest generated charts
-
-![AAPL actual vs predicted](results/aapl_actual_vs_predicted.png)
-
-![AAPL training loss](results/aapl_training_loss.png)
-
-![AAPL SHAP feature importance](results/aapl_shap_importance.png)
-
-### Latest prediction data and evaluation
-
-- [Date-wise predictions (CSV)](results/aapl_predictions.csv)
-- [Evaluation metrics (JSON)](results/aapl_metrics.json)
-- [SHAP importance values (CSV)](results/aapl_shap_importance.csv)
-
-**Note:** These images and files appear after the automated training workflow finishes successfully. The charts are generated from downloaded historical market data and a newly trained model; they are historical test-set evaluation, not guaranteed future prices or financial advice. Open the repository's **Actions** tab to check the workflow status.
+[GitHub profile](https://github.com/srujanddk28)
