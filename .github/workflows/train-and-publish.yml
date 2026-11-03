@@ -33,9 +33,6 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt
-          # yfinance uses curl_cffi for Yahoo Finance requests; upgrade it so
-          # the Chrome fingerprint selected by yfinance is supported.
-          pip install --upgrade curl_cffi
 
       - name: Train and evaluate AAPL LSTM model
         run: python src/train.py --ticker AAPL --period 5y
