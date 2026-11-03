@@ -5,10 +5,10 @@
   "train_points": 1003,
   "test_points": 251,
   "lookback_days": 30,
-  "lstm_mae": 14.60853099822998,
-  "lstm_rmse": 18.466613336111976,
+  "lstm_mae": 14.608529090881348,
+  "lstm_rmse": 18.466611683530697,
   "baseline_mae": 3.196948528289795,
-  "baseline_rmse": 4.471812232727957,
-  "generated_at_utc": "2026-11-03T05:14:15.376500+00:00",
+  "baseline_rmse": 4.471812445991449,
+  "generated_at_utc": "2026-11-03T05:20:56.787354+00:00",
   "note": "Historical test-set evaluation; not a guarantee of future performance."
 }
