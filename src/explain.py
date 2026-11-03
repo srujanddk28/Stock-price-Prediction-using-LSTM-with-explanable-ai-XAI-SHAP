@@ -109,7 +109,7 @@ def main():
     print(importance.head().to_string(index=False))
     print("\nInterpretation: SHAP values describe this model's output sensitivity")
     print("for the selected background and recent windows; they do not explain")
-    print real-world causes of stock-price movements or guarantee future outcomes.")
+    print("real-world causes of stock-price movements or guarantee future outcomes.")
 
 
 if __name__ == "__main__":
