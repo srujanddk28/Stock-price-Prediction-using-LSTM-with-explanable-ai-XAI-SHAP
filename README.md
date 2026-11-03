@@ -131,3 +131,24 @@ This project is intended to practise Python, data preprocessing, sequence modell
 
 **Srujan S**  
 GitHub: [@srujanddk28](https://github.com/srujanddk28)
+
+
+## Live graphs and model results on GitHub
+
+The repository includes an automated GitHub Actions workflow that trains the AAPL model, evaluates it against the previous-day baseline, creates prediction and training-loss charts, and generates a SHAP feature-importance chart. When the workflow completes successfully, it publishes the generated charts, prediction CSV and evaluation metrics into `results/`.
+
+### Latest generated charts
+
+![AAPL actual vs predicted](results/aapl_actual_vs_predicted.png)
+
+![AAPL training loss](results/aapl_training_loss.png)
+
+![AAPL SHAP feature importance](results/aapl_shap_importance.png)
+
+### Latest prediction data and evaluation
+
+- [Date-wise predictions (CSV)](results/aapl_predictions.csv)
+- [Evaluation metrics (JSON)](results/aapl_metrics.json)
+- [SHAP importance values (CSV)](results/aapl_shap_importance.csv)
+
+**Note:** These images and files appear after the automated training workflow finishes successfully. The charts are generated from downloaded historical market data and a newly trained model; they are historical test-set evaluation, not guaranteed future prices or financial advice. Open the repository's **Actions** tab to check the workflow status.
