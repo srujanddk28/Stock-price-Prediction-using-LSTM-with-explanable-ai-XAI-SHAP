@@ -15,7 +15,8 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import tensorflow as tf
-import yfinance as yf
+import urllib.parse
+import urllib.request
 from sklearn.metrics import mean_absolute_error, mean_squared_error
 from sklearn.preprocessing import MinMaxScaler
 from tensorflow.keras import Sequential
@@ -30,46 +31,35 @@ SEED = 42
 
 
 def download_close(ticker: str, period: str) -> pd.Series:
-    """Download daily prices, falling back to Stooq if Yahoo Finance is unavailable."""
-    try:
-        data = yf.download(ticker, period=period, auto_adjust=True, progress=False)
-        if not data.empty:
-            close = data["Close"]
-            if isinstance(close, pd.DataFrame):
-                close = close.iloc[:, 0]
-            close = close.dropna().astype("float32")
-            if len(close) > WINDOW + 30:
-                print("Data source: Yahoo Finance")
-                return close
-    except Exception as exc:
-        print(f"Yahoo Finance download failed: {exc}")
-
-    # Stooq is a free fallback and avoids Yahoo's browser-impersonation dependency.
-    stooq_symbol = f"{ticker.lower()}.us"
-    url = f"https://stooq.com/q/d/l/?s={stooq_symbol}&i=d"
-    try:
-        data = pd.read_csv(url)
-        if data.empty or "Close" not in data.columns:
-            raise ValueError("Stooq returned no usable price data.")
-        data["Date"] = pd.to_datetime(data["Date"])
-        data = data.sort_values("Date").set_index("Date")
-        close = data["Close"].dropna().astype("float32")
-        if period.endswith("y"):
-            years = int(period[:-1])
-            close = close.loc[close.index >= (pd.Timestamp.today() - pd.DateOffset(years=years))]
-        elif period.endswith("mo"):
-            months = int(period[:-2])
-            close = close.loc[close.index >= (pd.Timestamp.today() - pd.DateOffset(months=months))]
-        if len(close) <= WINDOW + 30:
-            raise ValueError("Stooq did not return enough history for this period.")
-        print(f"Data source: Stooq ({stooq_symbol})")
-        return close
-    except Exception as exc:
-        raise ValueError(
-            f"Could not download {ticker} prices from Yahoo Finance or Stooq. "
-            f"Check the ticker and network. Stooq error: {exc}"
-        ) from exc
-
+    """Download adjusted daily prices from Yahoo's chart API without yfinance."""
+    range_value = period
+    encoded_ticker = urllib.parse.quote(ticker)
+    errors = []
+    for host in ("query1.finance.yahoo.com", "query2.finance.yahoo.com"):
+        url = f"https://{host}/v8/finance/chart/{encoded_ticker}?range={range_value}&interval=1d&events=history"
+        request = urllib.request.Request(
+            url,
+            headers={"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120.0.0.0 Safari/537.36"}
+        )
+        try:
+            with urllib.request.urlopen(request, timeout=30) as response:
+                payload = json.loads(response.read().decode("utf-8"))
+            chart = payload.get("chart", {})
+            if chart.get("error") or not chart.get("result"):
+                raise ValueError(str(chart.get("error") or "Yahoo returned no chart data"))
+            result = chart["result"][0]
+            quote = result["indicators"]["quote"][0]
+            values = result["indicators"].get("adjclose", [{}])[0].get("adjclose") or quote.get("close")
+            dates = pd.to_datetime(result["timestamp"], unit="s")
+            close = pd.Series(values, index=dates, name="Close").dropna().astype("float32")
+            if len(close) <= WINDOW + 30:
+                raise ValueError("Not enough price history for the selected period.")
+            print(f"Data source: Yahoo Finance chart API ({host})")
+            return close
+        except Exception as exc:
+            errors.append(f"{host}: {exc}")
+            print(f"Yahoo chart request failed: {host}: {exc}")
+    raise ValueError(f"Could not download {ticker} market data. " + " | ".join(errors))
 
 def make_sequences(values: np.ndarray, window: int = WINDOW):
     """Create rolling windows: previous window days -> next day's price."""
