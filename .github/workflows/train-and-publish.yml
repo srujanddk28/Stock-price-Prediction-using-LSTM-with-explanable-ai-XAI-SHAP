@@ -1,0 +1,54 @@
+name: Train model and publish graphs
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - ".github/workflows/train-and-publish.yml"
+      - "src/**"
+      - "requirements.txt"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: stock-model-results
+  cancel-in-progress: false
+
+jobs:
+  train-and-publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
+          cache: pip
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Train and evaluate AAPL LSTM model
+        run: python src/train.py --ticker AAPL --period 5y
+
+      - name: Generate SHAP explanation
+        run: python src/explain.py --ticker AAPL --period 6mo --background 10 --samples 5
+
+      - name: Publish charts, predictions and metrics to GitHub
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add results/aapl_actual_vs_predicted.png
+          git add results/aapl_training_loss.png
+          git add results/aapl_predictions.csv
+          git add results/aapl_metrics.json
+          git add results/aapl_shap_importance.png
+          git add results/aapl_shap_importance.csv
+          git commit -m "Publish latest AAPL model graphs and predictions" || echo "No result changes to publish"
+          git push
