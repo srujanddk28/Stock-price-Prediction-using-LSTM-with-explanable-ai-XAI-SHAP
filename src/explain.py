@@ -17,7 +17,9 @@ import numpy as np
 import pandas as pd
 import shap
 import tensorflow as tf
-import yfinance as yf
+import json
+import urllib.parse
+import urllib.request
 from sklearn.preprocessing import MinMaxScaler
 import joblib
 
@@ -28,13 +30,32 @@ WINDOW = 30
 
 
 def load_recent_windows(ticker: str, period: str, scaler):
-    data = yf.download(ticker, period=period, auto_adjust=True, progress=False)
-    if data.empty:
-        raise ValueError(f"No market data returned for {ticker}.")
-    close = data["Close"]
-    if isinstance(close, pd.DataFrame):
-        close = close.iloc[:, 0]
-    close = close.dropna().astype("float32")
+    """Load adjusted daily prices using Yahoo's chart API."""
+    errors = []
+    for host in ("query1.finance.yahoo.com", "query2.finance.yahoo.com"):
+        url = f"https://{host}/v8/finance/chart/{urllib.parse.quote(ticker)}?range={period}&interval=1d&events=history"
+        request = urllib.request.Request(
+            url,
+            headers={"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120.0.0.0 Safari/537.36"}
+        )
+        try:
+            with urllib.request.urlopen(request, timeout=30) as response:
+                payload = json.loads(response.read().decode("utf-8"))
+            chart = payload.get("chart", {})
+            if chart.get("error") or not chart.get("result"):
+                raise ValueError(str(chart.get("error") or "Yahoo returned no chart data"))
+            result = chart["result"][0]
+            quote = result["indicators"]["quote"][0]
+            values = result["indicators"].get("adjclose", [{}])[0].get("adjclose") or quote.get("close")
+            close = pd.Series(values, index=pd.to_datetime(result["timestamp"], unit="s")).dropna().astype("float32")
+            print(f"Data source: Yahoo Finance chart API ({host})")
+            break
+        except Exception as exc:
+            errors.append(f"{host}: {exc}")
+            print(f"Yahoo chart request failed: {host}: {exc}")
+    else:
+        raise ValueError(f"Could not download {ticker} market data: " + " | ".join(errors))
+
     scaled = scaler.transform(close.to_numpy().reshape(-1, 1))
     windows = []
     for i in range(WINDOW, len(scaled)):
@@ -42,7 +63,6 @@ def load_recent_windows(ticker: str, period: str, scaler):
     if not windows:
         raise ValueError("Not enough data to create input windows.")
     return np.asarray(windows, dtype="float32")
-
 
 def main():
     parser = argparse.ArgumentParser(description="Explain an LSTM model with SHAP.")
