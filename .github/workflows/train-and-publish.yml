@@ -47,11 +47,12 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add results/aapl_actual_vs_predicted.png
-          git add results/aapl_training_loss.png
-          git add results/aapl_predictions.csv
-          git add results/aapl_metrics.json
-          git add results/aapl_shap_importance.png
-          git add results/aapl_shap_importance.csv
+          # Results are intentionally ignored for normal local commits; force-add generated outputs here.
+          git add -f results/aapl_actual_vs_predicted.png
+          git add -f results/aapl_training_loss.png
+          git add -f results/aapl_predictions.csv
+          git add -f results/aapl_metrics.json
+          git add -f results/aapl_shap_importance.png
+          git add -f results/aapl_shap_importance.csv
           git commit -m "Publish latest AAPL model graphs and predictions" || echo "No result changes to publish"
           git push
